@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talk with Professor Gigglesworth</title>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+    <!-- SVG Morphing Libraries -->
+    <script src="https://unpkg.com/flubber@0.4.2/build/flubber.min.js"></script>
+    <script src="https://unpkg.com/animejs@3.2.1/lib/anime.min.js"></script>
+    <style>
+        body {
+            font-family: 'Comic Neue', cursive;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB, #A0E6FF, #FFD700);
+            color: #333;
+            overflow-x: hidden;
+            padding-top: 70px; /* Space for top controls */
+        }
+
+        .top-controls {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: flex;
+            gap: 15px;
+        }
+
+        .top-controls button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px; /* Rounded buttons */
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive;
+            font-size: 1em;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .top-controls button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .professor-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        #professor-avatar-svg-container {
+            width: 200px;
+            height: 200px;
+            cursor: default;
+        }
+
+        #professor-avatar-svg-container svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
+        }
+
+
+        #professor-avatar-svg-container.speaking svg #outer-mouth {
+             animation: speak-mouth-animation 0.3s infinite alternate;
+        }
+        #professor-avatar-svg-container.speaking svg #inner-mouth {
+             opacity: 1;
+             animation: speak-inner-mouth 0.3s infinite alternate;
+        }
+        #professor-avatar-svg-container.speaking svg {
+             animation: speak-bob-animation 0.5s infinite alternate;
+        }
+
+        #professor-avatar-svg-container.thinking svg #left-eye-pupil,
+        #professor-avatar-svg-container.thinking svg #right-eye-pupil {
+             animation: thinking-eyes 2s infinite;
+        }
+        #professor-avatar-svg-container.thinking svg #outer-mouth {
+             animation: thinking-mouth 2s infinite;
+        }
+        #professor-avatar-svg-container.thinking svg {
+             animation: thinking-tilt 3s infinite ease-in-out;
+        }
+
+        /* Thinking Hand */
+        .thinking-hand {
+            position: absolute;
+            right: -60px;
+            top: 20px;
+            width: 50px;
+            height: 50px;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.5s ease;
+            z-index: 10;
+        }
+        
+        #professor-avatar-svg-container.thinking .thinking-hand {
+            opacity: 1;
+            transform: scale(1);
+            animation: thinking-hand-gesture 2s infinite;
+        }
+
+
+        @keyframes speak-mouth-animation { /* Modern mouth movement */
+            0% { d: path("M 40 65 Q 50 72 60 65"); }
+            100% { d: path("M 40 67 Q 50 75 60 67"); }
+        }
+        @keyframes speak-inner-mouth { /* Inner mouth movement */
+            0% { ry: 3; opacity: 0.6; }
+            100% { ry: 5; opacity: 1; }
+        }
+         @keyframes speak-bob-animation { /* Body bob */
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-3px) scale(1.02); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes thinking-eyes { /* Eyes looking around while thinking */
+            0% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(-2px) translateY(-1px); }
+            50% { transform: translateX(1px) translateY(1px); }
+            75% { transform: translateX(2px) translateY(-1px); }
+            100% { transform: translateX(0) translateY(0); }
+        }
+        @keyframes thinking-tilt { /* Slight head tilt while thinking */
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(-2deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        /* Excited animations */
+        @keyframes excited-bounce {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-8px) scale(1.05); }
+        }
+        @keyframes excited-smile {
+            0% { d: path("M 35 62 Q 50 55 65 62"); }
+            100% { d: path("M 35 60 Q 50 50 65 60"); }
+        }
+        @keyframes excited-eyes {
+            0% { transform: scale(1.2); }
+            50% { transform: scale(0.8); }
+            100% { transform: scale(1.2); }
+        }
+
+        /* Confused animations */
+        @keyframes confused-tilt {
+            0% { transform: rotate(-5deg); }
+            100% { transform: rotate(5deg); }
+        }
+        @keyframes confused-mouth {
+            0% { d: path("M 42 67 Q 50 71 58 67"); }
+            100% { d: path("M 38 69 Q 50 73 62 69"); }
+        }
+        @keyframes confused-eyes {
+            0% { transform: translateX(-1px) translateY(-1px); }
+            25% { transform: translateX(1px) translateY(1px); }
+            50% { transform: translateX(1px) translateY(-1px); }
+            75% { transform: translateX(-1px) translateY(1px); }
+            100% { transform: translateX(-1px) translateY(-1px); }
+        }
+        #professor-avatar-svg-container.excited svg {
+             animation: excited-bounce 0.6s infinite alternate;
+        }
+        #professor-avatar-svg-container.excited svg #outer-mouth {
+             animation: excited-smile 0.8s infinite alternate;
+        }
+        #professor-avatar-svg-container.excited svg #left-eye-pupil,
+        #professor-avatar-svg-container.excited svg #right-eye-pupil {
+             animation: excited-eyes 1s infinite;
+        }
+
+        #professor-avatar-svg-container.confused svg {
+             animation: confused-tilt 2s infinite alternate;
+        }
+        #professor-avatar-svg-container.confused svg #outer-mouth {
+             animation: confused-mouth 1.5s infinite alternate;
+        }
+        #professor-avatar-svg-container.confused svg #left-eye-pupil,
+        #professor-avatar-svg-container.confused svg #right-eye-pupil {
+             animation: confused-eyes 2s infinite;
+        }
+
+
+        #professor-name-display {
+            font-size: 2em;
+            font-weight: bold;
+            color: #8B4513;
+            margin-top: 15px;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.7);
+        }
+
+        .speech-bubble {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px;
+            border-radius: 20px;
+            margin-top: 20px;
+            max-width: 80%;
+            min-height: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            border: 3px solid #FFA500;
+            font-size: 1.2em;
+            line-height: 1.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .speech-bubble p {
+            margin: 0;
+        }
+
+        #status-indicator {
+            margin-top: 25px;
+            font-size: 1.1em;
+            color: #4CAF50;
+            font-weight: bold;
+            min-height: 20px;
+        }
+        #status-indicator.listening { color: #FF6347; }
+        #status-indicator.processing {
+            color: #1E90FF;
+            animation: pulse-processing 1s infinite;
+        }
+        @keyframes pulse-processing {
+            0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; }
+        }
+
+        /* Activation Button */
+        #activation-button {
+            background-color: #FF6B6B;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive;
+            font-size: 1.2em;
+            font-weight: bold;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            margin-top: 20px;
+            animation: pulse-glow 2s infinite;
+        }
+
+        #activation-button:hover {
+            background-color: #FF5252;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
+            50% { box-shadow: 0 6px 20px rgba(255,107,107,0.6); }
+            100% { box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
+        }
+
+        /* Modal Panel Styling */
+        .modal-panel {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5); /* Dimmed background */
+            z-index: 150;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-panel-content {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 550px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+             border: 3px solid #4CAF50;
+        }
+
+        .modal-panel-content h3 {
+            margin-top: 0;
+            text-align: center;
+            color: #3e8e41;
+        }
+        .modal-panel-content label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .modal-panel-content input[type="text"],
+        .modal-panel-content input[type="url"],
+        .modal-panel-content input[type="number"],
+        .modal-panel-content select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-family: 'Comic Neue', cursive;
+            font-size: 1em;
+        }
+         .modal-panel-content .button-group {
+            text-align: right;
+            margin-top: 20px;
+        }
+        .modal-panel-content button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive;
+            font-size: 1em;
+            transition: background-color 0.3s;
+            margin-left: 10px;
+        }
+        .modal-panel-content button.cancel-button {
+            background-color: #f44336;
+        }
+        .modal-panel-content button:hover { background-color: #45a049; }
+        .modal-panel-content button.cancel-button:hover { background-color: #d32f2f; }
+        .control-group { margin-bottom: 15px; }
+
+        /* Chat History Panel Specifics */
+        #chat-history-panel .chat-log {
+            min-height: 200px;
+            max-height: 50vh;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .chat-log .message {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            line-height: 1.4;
+            max-width: 90%;
+            position: relative;
+        }
+        .chat-log .user-message {
+            background-color: #D4EDDA;
+            text-align: right;
+            margin-left: auto;
+        }
+        .chat-log .professor-message {
+            background-color: #F8D7DA;
+            text-align: left;
+            margin-right: auto;
+        }
+
+        .clear-history-btn {
+            background-color: #f44336 !important;
+            margin-right: 10px !important;
+        }
+        .clear-history-btn:hover {
+            background-color: #d32f2f !important;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-controls">
+        <button id="toggle-customize-btn">Customize</button>
+        <button id="toggle-history-btn">View History</button>
+    </div>
+
+    <div class="professor-container">
+        <div id="professor-avatar-svg-container">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle id="head" cx="50" cy="50" r="40" fill="#FFDB58" stroke="#8B4513" stroke-width="1.5"/>
+                <circle id="left-eye-white" cx="35" cy="40" r="8" fill="white"/>
+                <circle id="left-eye-pupil" cx="35" cy="40" r="4" fill="black"/>
+                <circle id="right-eye-white" cx="65" cy="40" r="8" fill="white"/>
+                <circle id="right-eye-pupil" cx="65" cy="40" r="4" fill="black"/>
+                <path id="outer-mouth" d="M 40 65 Q 50 72 60 65" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" />
+                <ellipse id="inner-mouth" cx="50" cy="68" rx="8" ry="3" fill="#8B4513" opacity="0" />
+                <circle cx="35" cy="40" r="12" fill="none" stroke="#666" stroke-width="0.8"/>
+                <circle cx="65" cy="40" r="12" fill="none" stroke="#666" stroke-width="0.8"/>
+                <line x1="47" y1="40" x2="53" y2="40" stroke="#666" stroke-width="0.8"/>
+                 <line x1="28" y1="28" x2="42" y2="26" stroke="#8B4513" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="58" y1="26" x2="72" y2="28" stroke="#8B4513" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <h2 id="professor-name-display">Professor Gigglesworth</h2>
+        <div class="speech-bubble" id="professor-speech">
+            <p>Hello! Click "Wake Up Professor" to activate me!</p>
+        </div>
+        <button id="activation-button">🎤 Wake Up Professor</button>
+        <div id="status-indicator">Click the button to start!</div>
+    </div>
+
+    <div class="modal-panel" id="customization-panel">
+        <div class="modal-panel-content">
+            <h3>Customize Your Professor!</h3>
+            <div class="control-group">
+                <label for="avatar-url-input">Avatar Image URL (Overrides SVG):</label>
+                <input type="url" id="avatar-url-input" placeholder="Leave blank to use default SVG">
+            </div>
+            <div class="control-group">
+                <label for="prof-name-input">Professor's Name:</label>
+                <input type="text" id="prof-name-input" value="Professor Gigglesworth">
+            </div>
+            <div class="control-group">
+                <label for="voice-select">Voice:</label>
+                <select id="voice-select"></select>
+            </div>
+            <div class="control-group">
+                <label for="voice-pitch-input">Voice Pitch (0.5 - 2):</label>
+                <input type="number" id="voice-pitch-input" min="0.5" max="2" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <label for="voice-rate-input">Voice Rate (0.5 - 2):</label>
+                <input type="number" id="voice-rate-input" min="0.5" max="2" step="0.1" value="1">
+            </div>
+            <div class="button-group">
+                <button id="apply-customization-btn">Apply Changes</button>
+                <button id="close-customize-btn" class="cancel-button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-panel" id="chat-history-panel">
+        <div class="modal-panel-content">
+            <h3>Conversation History</h3>
+            <div class="chat-log" id="chat-log-display">
+                </div>
+             <div class="button-group">
+                <button id="clear-history-btn" class="clear-history-btn">Clear History</button>
+                <button id="close-history-btn" class="cancel-button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const professorAvatarContainer = document.getElementById('professor-avatar-svg-container');
+        const professorNameDisplay = document.getElementById('professor-name-display');
+        const professorSpeechBubbleP = document.getElementById('professor-speech').querySelector('p');
+        const statusIndicator = document.getElementById('status-indicator');
+        const activationButton = document.getElementById('activation-button');
+
+        // Top Controls
+        const toggleCustomizeBtn = document.getElementById('toggle-customize-btn');
+        const toggleHistoryBtn = document.getElementById('toggle-history-btn');
+
+        // Customization Panel Elements
+        const customizationPanel = document.getElementById('customization-panel');
+        const avatarUrlInput = document.getElementById('avatar-url-input');
+        const profNameInput = document.getElementById('prof-name-input');
+        const voiceSelect = document.getElementById('voice-select');
+        const voicePitchInput = document.getElementById('voice-pitch-input');
+        const voiceRateInput = document.getElementById('voice-rate-input');
+        const applyCustomizationBtn = document.getElementById('apply-customization-btn');
+        const closeCustomizeBtn = document.getElementById('close-customize-btn');
+
+        // Chat History Panel Elements
+        const chatHistoryPanel = document.getElementById('chat-history-panel');
+        const chatLogDisplay = document.getElementById('chat-log-display');
+        const closeHistoryBtn = document.getElementById('close-history-btn');
+        const clearHistoryBtn = document.getElementById('clear-history-btn');
+
+        const OPENAI_BACKEND_URL = ' https://ocr-function-ai-grocery-bxgke3bjaedhckaz.eastus-01.azurewebsites.net/chat/kids'; // Updated to match your actual running port
+        let sessionId = Date.now().toString(); // Simple session tracking
+
+        // Add instruction for ChatGPT to return plain text
+        const SYSTEM_INSTRUCTION = "Please respond in plain text only. No markdown, no formatting, no asterisks, no special characters. Just natural conversational text that sounds good when spoken aloud. Keep responses concise and friendly for voice interaction.";
+        
+        const MAX_HISTORY_MESSAGES = 10; // Send last 10 messages for context
+
+        const synth = window.speechSynthesis;
+        let voices = [];
+        let currentVoice = null;
+        let currentPitch = 1;
+        let currentRate = 1;
+        let conversationLog = [];
+        let isActivated = false;
+        let speechAllowed = false;
+
+        const defaultSVGAvatar = professorAvatarContainer.innerHTML; // Store default SVG
+
+        function populateVoiceList() {
+            voices = synth.getVoices().sort((a, b) => {
+                const aname = a.name.toUpperCase();
+                const bname = b.name.toUpperCase();
+                if (aname < bname) return -1;
+                if (aname > bname) return 1;
+                return 0;
+            });
+            const selectedIndex = voiceSelect.selectedIndex < 0 ? 0 : voiceSelect.selectedIndex;
+            voiceSelect.innerHTML = '';
+            voices.forEach((voice, i) => {
+                const option = document.createElement('option');
+                // Attempt to identify kid-friendly voices (very heuristic)
+                let displayName = `${voice.name} (${voice.lang})`;
+                if (voice.name.toLowerCase().includes('child') || voice.name.toLowerCase().includes('kid')) {
+                    displayName = `🧸 ${displayName} (Might be kid-like)`;
+                } else if (voice.voiceURI.toLowerCase().includes('google') && voice.lang.startsWith('en')) {
+                     displayName = `⭐ ${displayName} (Often clear)`;
+                }
+
+                option.textContent = displayName;
+                option.setAttribute('data-lang', voice.lang);
+                option.setAttribute('data-name', voice.name);
+                voiceSelect.appendChild(option);
+                if (i === selectedIndex) option.selected = true;
+            });
+            if (voices.length > 0 && !currentVoice) {
+                // First try to find Google US English voice
+                currentVoice = voices.find(v => 
+                    v.name.toLowerCase().includes('google') && 
+                    v.lang === 'en-US'
+                ) || voices.find(v => v.default) || voices[0];
+                updateVoiceSelectionUI();
+            }
+        }
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        function logConversation(sender, text) {
+            conversationLog.push({ sender, text, timestamp: new Date() });
+            renderConversationHistory();
+            // Save to localStorage for persistence
+            try {
+                localStorage.setItem('gigglesworth-conversations', JSON.stringify(conversationLog));
+            } catch (e) {
+                console.log('Could not save conversation to localStorage');
+            }
+        }
+
+        function loadConversationHistory() {
+            try {
+                const saved = localStorage.getItem('gigglesworth-conversations');
+                if (saved) {
+                    conversationLog = JSON.parse(saved);
+                    // Convert timestamp strings back to Date objects
+                    conversationLog.forEach(entry => {
+                        if (typeof entry.timestamp === 'string') {
+                            entry.timestamp = new Date(entry.timestamp);
+                        }
+                    });
+                    
+                    // Limit stored history to prevent excessive growth
+                    if (conversationLog.length > 50) {
+                        conversationLog = conversationLog.slice(-50);
+                        localStorage.setItem('gigglesworth-conversations', JSON.stringify(conversationLog));
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load conversation history');
+                conversationLog = [];
+            }
+        }
+
+        function renderConversationHistory() {
+            if (!chatHistoryPanel.style.display || chatHistoryPanel.style.display === 'none') return; // Don't render if not visible
+
+            chatLogDisplay.innerHTML = ''; // Clear previous
+            
+            // Show conversation count
+            const totalMessages = conversationLog.length;
+            const headerDiv = document.createElement('div');
+            headerDiv.style.textAlign = 'center';
+            headerDiv.style.marginBottom = '10px';
+            headerDiv.style.fontSize = '0.9em';
+            headerDiv.style.color = '#666';
+            headerDiv.textContent = totalMessages + ' messages • Last ' + Math.min(MAX_HISTORY_MESSAGES, totalMessages) + ' sent to AI';
+            chatLogDisplay.appendChild(headerDiv);
+            
+            conversationLog.forEach((entry, index) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(entry.sender === 'user' ? 'user-message' : 'professor-message');
+                
+                // Add timestamp
+                const timeDiv = document.createElement('div');
+                timeDiv.style.fontSize = '0.8em';
+                timeDiv.style.opacity = '0.7';
+                timeDiv.style.marginTop = '4px';
+                timeDiv.textContent = entry.timestamp.toLocaleTimeString();
+                
+                const textDiv = document.createElement('div');
+                textDiv.textContent = entry.text;
+                
+                messageDiv.appendChild(textDiv);
+                messageDiv.appendChild(timeDiv);
+                
+                // Highlight recent messages that are sent to API
+                if (index >= totalMessages - MAX_HISTORY_MESSAGES) {
+                    messageDiv.style.border = '1px solid #4CAF50';
+                    if (entry.sender === 'user') {
+                        messageDiv.style.backgroundColor = '#E8F5E8';
+                    } else {
+                        messageDiv.style.backgroundColor = '#FFF8E8';
+                    }
+                }
+                
+                chatLogDisplay.appendChild(messageDiv);
+            });
+            chatLogDisplay.scrollTop = chatLogDisplay.scrollHeight; // Scroll to bottom
+        }
+
+        function speak(text, onEndCallback) {
+            if (!speechAllowed) {
+                console.log('Speech not yet allowed');
+                if (onEndCallback) onEndCallback();
+                return;
+            }
+
+            if (synth.speaking) { // If already speaking, cancel and speak new one
+                synth.cancel();
+            }
+
+            // Add emotional expression based on text content
+            addEmotionalExpression(text);
+
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.onstart = () => {
+                professorAvatarContainer.classList.add('speaking');
+                morphToExpression('happy'); // Smile while speaking
+            };
+            utterThis.onend = () => {
+                professorAvatarContainer.classList.remove('speaking');
+                setTimeout(() => morphToExpression('neutral'), 500); // Return to neutral after speaking
+                if (onEndCallback) onEndCallback();
+            };
+            utterThis.onerror = (event) => {
+                console.error('SpeechSynthesisUtterance.onerror', event);
+                professorAvatarContainer.classList.remove('speaking');
+                statusIndicator.textContent = "Sorry, I couldn't speak that.";
+                morphToExpression('neutral');
+                if (onEndCallback) onEndCallback();
+            };
+
+            utterThis.voice = currentVoice || (voices.length > 0 ? voices[0] : null);
+            utterThis.pitch = parseFloat(voicePitchInput.value) || currentPitch;
+            utterThis.rate = parseFloat(voiceRateInput.value) || currentRate;
+
+            professorSpeechBubbleP.textContent = text;
+            if (text !== "Yes? How can I help you?" && !text.startsWith("My settings have been updated")) { // Avoid logging trivial or meta messages if desired
+                 if (conversationLog.length === 0 || conversationLog[conversationLog.length -1].text !== text) { // Avoid double logging initial
+                    logConversation('professor', text);
+                 }
+            }
+            synth.speak(utterThis);
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let isListeningForTrigger = true;
+        let conversationActive = false;
+        let continuousMode = false; // New flag for continuous conversation
+        let speechTimeout = null;
+        let lastTranscript = '';
+        const TRIGGER_PHRASE = "okay professor";
+        const STOP_PHRASE = "stop";
+        const SPEECH_DEBOUNCE_DELAY = 1500; // Reduced to 1.5 seconds
+
+        // Morphing shapes for different expressions
+        const expressions = {
+            neutral: {
+                mouth: "M 40 65 Q 50 72 60 65",
+                eyebrows: {
+                    left: "M 28 28 L 42 26",
+                    right: "M 58 26 L 72 28"
+                }
+            },
+            happy: {
+                mouth: "M 35 62 Q 50 55 65 62",
+                eyebrows: {
+                    left: "M 30 26 L 44 24",
+                    right: "M 56 24 L 70 26"
+                }
+            },
+            surprised: {
+                mouth: "M 47 65 Q 50 68 53 65",
+                eyebrows: {
+                    left: "M 26 24 L 40 22",
+                    right: "M 60 22 L 74 24"
+                }
+            },
+            thinking: {
+                mouth: "M 42 66 Q 50 70 58 66",
+                eyebrows: {
+                    left: "M 29 29 L 43 27",
+                    right: "M 57 27 L 71 29"
+                }
+            }
+        };
+
+        function initializeSpeechRecognition() {
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = () => {
+                    if (isListeningForTrigger) {
+                        statusIndicator.textContent = "Listening for 'Okay Professor'...";
+                    } else if (continuousMode) {
+                        statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
+                    } else {
+                        statusIndicator.textContent = "Listening for your question...";
+                    }
+                    statusIndicator.classList.add('listening');
+                    statusIndicator.classList.remove('processing');
+                };
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript.trim() + ' ';
+                        else interimTranscript += event.results[i][0].transcript;
+                    }
+                    const currentTranscript = (finalTranscript || interimTranscript).toLowerCase().trim();
+
+                    // Handle stop command in continuous mode
+                    if (continuousMode && currentTranscript.includes(STOP_PHRASE)) {
+                        continuousMode = false;
+                        isListeningForTrigger = true;
+                        conversationActive = false;
+                        speak("Goodbye! Say 'Okay Professor' when you want to chat again.", () => {
+                            statusIndicator.textContent = "Listening for 'Okay Professor'...";
+                        });
+                        // Clear any pending timeout
+                        if (speechTimeout) {
+                            clearTimeout(speechTimeout);
+                            speechTimeout = null;
+                        }
+                        return;
+                    }
+
+                    // Handle trigger phrase detection
+                    if (isListeningForTrigger && currentTranscript.includes(TRIGGER_PHRASE)) {
+                        speak("Yes.", () => {
+                            isListeningForTrigger = false;
+                            conversationActive = true;
+                            continuousMode = true; // Enable continuous mode
+                            statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
+                            lastTranscript = ''; // Reset for new conversation
+                        });
+                        return;
+                    }
+
+                    // Handle conversation with debouncing (both single question and continuous mode)
+                    if (!isListeningForTrigger && conversationActive) {
+                        // Clear existing timeout
+                        if (speechTimeout) {
+                            clearTimeout(speechTimeout);
+                        }
+                        
+                        // Only process if we have final transcript (user finished a phrase)
+                        if (finalTranscript.length > 0) {
+                            lastTranscript = finalTranscript.trim();
+                            
+                            // Set debounce timeout - wait for user to finish completely
+                            speechTimeout = setTimeout(() => {
+                                if (lastTranscript.length > 0) {
+                                    // Don't set conversationActive to false in continuous mode
+                                    if (!continuousMode) {
+                                        conversationActive = false;
+                                    }
+                                    logConversation('user', lastTranscript);
+                                    sendToAI(lastTranscript);
+                                    lastTranscript = '';
+                                }
+                            }, SPEECH_DEBOUNCE_DELAY);
+                            
+                            if (continuousMode) {
+                                statusIndicator.textContent = "Got it! Processing... (Say 'stop' to end)";
+                            } else {
+                                statusIndicator.textContent = "Got it! Waiting for you to finish...";
+                            }
+                        }
+                        
+                        // Update status to show we're still listening for interim results
+                        else if (interimTranscript.length > 0) {
+                            if (continuousMode) {
+                                statusIndicator.textContent = `Listening: "${interimTranscript}"... (Say 'stop' to end)`;
+                            } else {
+                                statusIndicator.textContent = `Listening: "${interimTranscript}"...`;
+                            }
+                        }
+                    }
+                };
+
+                recognition.onend = () => {
+                    statusIndicator.classList.remove('listening');
+                     if (document.visibilityState === 'visible' && !synth.speaking && recognition && isActivated) { // Only restart if page is active and not about to speak
+                        setTimeout(() => {
+                            try { recognition.start(); }
+                            catch(e){ console.error("Error restarting recognition onend:", e); }
+                        }, 250);
+                    }
+                };
+                 recognition.onerror = (event) => {
+                    console.error('Speech recognition error', event.error);
+                    statusIndicator.classList.remove('listening', 'processing');
+                    if (event.error === 'no-speech' || event.error === 'aborted') { /* Common with continuous, let onend handle restart */ }
+                    else if (event.error === 'audio-capture') { statusIndicator.textContent = "Mic error."; speak("I can't seem to access your microphone."); }
+                    else if (event.error === 'not-allowed') { statusIndicator.textContent = "Mic permission denied."; speak("Please allow microphone access."); }
+                    else { statusIndicator.textContent = "Voice recognition hiccup."; }
+                };
+            } else {
+                statusIndicator.textContent = "Browser doesn't support Speech Recognition!";
+                speak("It seems your browser doesn't support the magic for me to hear you.");
+            }
+        }
+
+        async function sendToAI(userText) {
+            statusIndicator.textContent = "Professor is thinking...";
+            statusIndicator.classList.add('processing');
+            statusIndicator.classList.remove('listening');
+            
+            // Add thinking animation and expression
+            professorAvatarContainer.classList.add('thinking');
+            professorSpeechBubbleP.textContent = "Hmm, let me think about that...";
+            morphToExpression('thinking');
+            
+            try {
+                // Format message with conversation history
+                const messageWithHistory = formatMessageForAPI(userText);
+                
+                console.log('Sending to API:', messageWithHistory); // Debug log
+                
+                const response = await fetch(OPENAI_BACKEND_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "text/plain",
+                        // "x-functions-key": "<your-function-key>", // Uncomment if your function requires a key
+                    },
+                    body: messageWithHistory
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(`API error: ${response.status} - ${error}`);
+                }
+                
+                const reply = await response.text();
+                console.log("ChatGPT says:", reply);
+                
+                // Clean up any remaining formatting that might slip through
+                const cleanReply = reply
+                    .replace(/\*\*/g, '') // Remove bold markdown
+                    .replace(/\*/g, '')   // Remove italic markdown
+                    .replace(/`/g, '')    // Remove code formatting
+                    .replace(/#{1,6}\s/g, '') // Remove headers
+                    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convert links to just text
+                    .trim();
+                
+                speak(cleanReply || "I'm not sure what to say to that!", () => {
+                    // Add sparkles for exciting responses
+                    if (cleanReply && (cleanReply.includes('exciting') || cleanReply.includes('amazing') || cleanReply.includes('wonderful'))) {
+                        createMagicalSparkles();
+                    }
+                    
+                    // In continuous mode, stay active and keep listening
+                    if (continuousMode) {
+                        // Don't reset to trigger mode, stay in conversation
+                        statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
+                    } else {
+                        // Single question mode - go back to waiting for trigger
+                        isListeningForTrigger = true;
+                        conversationActive = false;
+                        statusIndicator.textContent = "Listening for 'Okay Professor'...";
+                    }
+                    
+                    lastTranscript = '';
+                    // Clear any pending timeout
+                    if (speechTimeout) {
+                        clearTimeout(speechTimeout);
+                        speechTimeout = null;
+                    }
+                });
+            } catch (error) {
+                console.error('Error sending message to AI:', error);
+                speak("Oh dear, my circuits are a bit tangled. Could you try again?", () => {
+                    // In continuous mode, stay active and keep listening
+                    if (continuousMode) {
+                        statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
+                    } else {
+                        // Single question mode - go back to waiting for trigger
+                        isListeningForTrigger = true;
+                        conversationActive = false;
+                        statusIndicator.textContent = "Listening for 'Okay Professor'...";
+                    }
+                    
+                    lastTranscript = '';
+                    // Clear any pending timeout
+                    if (speechTimeout) {
+                        clearTimeout(speechTimeout);
+                        speechTimeout = null;
+                    }
+                });
+            } finally {
+                statusIndicator.classList.remove('processing');
+                // Remove thinking animation
+                professorAvatarContainer.classList.remove('thinking');
+                
+                 if (document.visibilityState === 'visible' && !synth.speaking && recognition && isActivated) {
+                    setTimeout(() => {
+                        try { recognition.start(); }
+                        catch(e){ console.error("Error restarting recognition in finally:", e); }
+                    }, 250);
+                }
+            }
+        }
+
+        function applyChangesLogic() {
+            const newAvatarUrl = avatarUrlInput.value.trim();
+            if (newAvatarUrl) {
+                const img = new Image();
+                img.onload = () => { professorAvatarContainer.innerHTML = `<img id="professor-avatar-img" src="${newAvatarUrl}" alt="Professor Avatar" style="width:100%; height:100%; border-radius:50%; border: 8px solid #8B4513;">`; };
+                img.onerror = () => {
+                    professorAvatarContainer.innerHTML = defaultSVGAvatar; // Revert to SVG
+                    speak("Hmm, that image link for my avatar doesn't seem to work. I'll stick to my current look!");
+                };
+                img.src = newAvatarUrl;
+            } else {
+                 professorAvatarContainer.innerHTML = defaultSVGAvatar; // Revert to SVG if field is cleared
+            }
+
+            professorNameDisplay.textContent = profNameInput.value.trim() || "Professor";
+            currentPitch = parseFloat(voicePitchInput.value);
+            currentRate = parseFloat(voiceRateInput.value);
+            const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+            if (selectedVoiceName) currentVoice = voices.find(voice => voice.name === selectedVoiceName);
+            speak(`My settings have been updated! I am now ${professorNameDisplay.textContent}.`);
+        }
+
+        function updateVoiceSelectionUI() {
+            if (currentVoice) {
+                for (let i = 0; i < voiceSelect.options.length; i++) {
+                    if (voiceSelect.options[i].getAttribute('data-name') === currentVoice.name) {
+                        voiceSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            voicePitchInput.value = currentPitch;
+            voiceRateInput.value = currentRate;
+        }
+
+        // SVG Morphing Functions using Flubber
+        function morphToExpression(expressionName) {
+            if (!expressions[expressionName] || !window.flubber) return;
+
+            const expression = expressions[expressionName];
+            const mouthElement = document.getElementById('outer-mouth');
+            const leftEyebrow = document.querySelector('line[x1="28"]'); // Left eyebrow
+            const rightEyebrow = document.querySelector('line[x1="58"]'); // Right eyebrow
+
+            if (mouthElement) {
+                const currentMouth = mouthElement.getAttribute('d');
+                const targetMouth = expression.mouth;
+                
+                if (currentMouth !== targetMouth) {
+                    try {
+                        const mouthMorph = flubber.interpolate(currentMouth, targetMouth);
+                        
+                        anime({
+                            targets: mouthElement,
+                            duration: 600,
+                            easing: 'easeOutQuad',
+                            update: function(anim) {
+                                mouthElement.setAttribute('d', mouthMorph(anim.progress / 100));
+                            }
+                        });
+                    } catch (e) {
+                        // Fallback to direct attribute change
+                        mouthElement.setAttribute('d', targetMouth);
+                    }
+                }
+            }
+
+            // Animate eyebrows
+            if (leftEyebrow && rightEyebrow) {
+                anime({
+                    targets: [leftEyebrow, rightEyebrow],
+                    duration: 400,
+                    easing: 'easeOutQuad',
+                    y1: function(el) {
+                        return el === leftEyebrow ? 
+                            parseInt(expression.eyebrows.left.split(' ')[1]) : 
+                            parseInt(expression.eyebrows.right.split(' ')[1]);
+                    },
+                    y2: function(el) {
+                        return el === leftEyebrow ? 
+                            parseInt(expression.eyebrows.left.split(' ')[4]) : 
+                            parseInt(expression.eyebrows.right.split(' ')[4]);
+                    }
+                });
+            }
+        }
+
+        function addEmotionalExpression(text) {
+            const lowerText = text.toLowerCase();
+            
+            if (lowerText.includes('exciting') || lowerText.includes('amazing') || lowerText.includes('wonderful')) {
+                professorAvatarContainer.classList.add('excited');
+                setTimeout(() => professorAvatarContainer.classList.remove('excited'), 2000);
+            } else if (lowerText.includes('confused') || lowerText.includes('not sure') || lowerText.includes('hmm')) {
+                professorAvatarContainer.classList.add('confused');
+                setTimeout(() => professorAvatarContainer.classList.remove('confused'), 2000);
+            } else if (lowerText.includes('thinking') || lowerText.includes('let me think')) {
+                morphToExpression('thinking');
+            } else if (lowerText.includes('surprise') || lowerText.includes('wow') || lowerText.includes('oh')) {
+                morphToExpression('surprised');
+                setTimeout(() => morphToExpression('neutral'), 1500);
+            }
+        }
+
+        function buildConversationHistory() {
+            // Get recent conversation history (excluding system messages)
+            const recentMessages = conversationLog
+                .filter(entry => entry.sender === 'user' || entry.sender === 'professor')
+                .slice(-MAX_HISTORY_MESSAGES)
+                .map(entry => {
+                    const role = entry.sender === 'user' ? 'Human' : 'Assistant';
+                    return role + ': ' + entry.text;
+                })
+                .join('\n');
+            
+            return recentMessages;
+        }
+
+        function formatMessageForAPI(userText) {
+            const history = buildConversationHistory();
+            
+            let fullMessage = SYSTEM_INSTRUCTION;
+            
+            if (history.length > 0) {
+                fullMessage += '\n\nConversation History:\n' + history;
+            }
+            
+            fullMessage += '\n\nCurrent Human Message: ' + userText;
+            
+            return fullMessage;
+        }
+
+        function createMagicalSparkles() {
+            if (!window.anime) return;
+
+            const container = professorAvatarContainer;
+            const sparkles = [];
+
+            for (let i = 0; i < 5; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.style.position = 'absolute';
+                sparkle.style.width = '4px';
+                sparkle.style.height = '4px';
+                sparkle.style.backgroundColor = '#FFD700';
+                sparkle.style.borderRadius = '50%';
+                sparkle.style.pointerEvents = 'none';
+                sparkle.style.zIndex = '10';
+                container.appendChild(sparkle);
+                sparkles.push(sparkle);
+            }
+
+            anime({
+                targets: sparkles,
+                translateX: function() { return anime.random(-50, 50); },
+                translateY: function() { return anime.random(-50, 50); },
+                scale: [0, 1, 0],
+                opacity: [0, 1, 0],
+                duration: 1500,
+                delay: anime.stagger(200),
+                easing: 'easeOutQuint',
+                complete: function() {
+                    sparkles.forEach(sparkle => sparkle.remove());
+                }
+            });
+        }
+
+        // Load conversation history on startup
+        loadConversationHistory();
+
+        // Activation button click handler
+        activationButton.addEventListener('click', () => {
+            speechAllowed = true;
+            isActivated = true;
+            activationButton.classList.add('hidden');
+            
+            // Initialize speech recognition
+            initializeSpeechRecognition();
+            
+            // Just update the speech bubble and start listening immediately
+            professorSpeechBubbleP.textContent = "I'm listening! Say 'Okay Professor' to chat with me!";
+            statusIndicator.textContent = "Listening for 'Okay Professor'...";
+            
+            // Start speech recognition immediately without any greeting speech
+            if (recognition) {
+                try { 
+                    recognition.start(); 
+                } catch(e) {
+                    console.error("Initial recognition start failed:", e);
+                    statusIndicator.textContent = "Voice recognition couldn't start.";
+                    speak("I'm having trouble starting my ears! Please check microphone permissions and refresh.");
+                }
+            }
+        });
+
+        // Event Listeners for Modals
+        toggleCustomizeBtn.addEventListener('click', () => {
+            customizationPanel.style.display = 'flex';
+            updateVoiceSelectionUI(); // Ensure current settings are shown
+        });
+        closeCustomizeBtn.addEventListener('click', () => customizationPanel.style.display = 'none');
+        applyCustomizationBtn.addEventListener('click', () => {
+            applyChangesLogic();
+            customizationPanel.style.display = 'none';
+        });
+
+        toggleHistoryBtn.addEventListener('click', () => {
+            chatHistoryPanel.style.display = 'flex';
+            renderConversationHistory(); // Render when opened
+        });
+        closeHistoryBtn.addEventListener('click', () => chatHistoryPanel.style.display = 'none');
+        
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all conversation history? This cannot be undone.')) {
+                conversationLog = [];
+                localStorage.removeItem('gigglesworth-conversations');
+                renderConversationHistory();
+                speak("Chat history has been cleared!");
+            }
+        });
+
+        // Close modals if clicking outside content
+        [customizationPanel, chatHistoryPanel].forEach(panel => {
+            panel.addEventListener('click', (event) => {
+                if (event.target === panel) { // Clicked on the backdrop itself
+                    panel.style.display = 'none';
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>
