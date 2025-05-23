@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"> 
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Talk with Professor Gigglesworth</title>
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
@@ -72,16 +72,19 @@
         }
 
 
-        #professor-avatar-svg-container.speaking svg #outer-mouth {
-             animation: speak-mouth-animation 0.3s infinite alternate;
-        }
-        #professor-avatar-svg-container.speaking svg #inner-mouth {
-             opacity: 1;
-             animation: speak-inner-mouth 0.3s infinite alternate;
-        }
-        #professor-avatar-svg-container.speaking svg {
-             animation: speak-bob-animation 0.5s infinite alternate;
-        }
+      #professor-avatar-svg-container.speaking svg #outer-mouth {
+     animation: speak-mouth-animation 0.6s ease-in-out infinite;
+     opacity: 0;
+}
+#professor-avatar-svg-container.speaking svg #inner-mouth {
+     opacity: 1;
+     animation: speak-inner-mouth 0.6s ease-in-out infinite;
+     display: block;
+}
+#professor-avatar-svg-container.speaking svg {
+     animation: speak-bob-animation 0.8s ease-in-out infinite;
+}
+        
 
         #professor-avatar-svg-container.thinking svg #left-eye-pupil,
         #professor-avatar-svg-container.thinking svg #right-eye-pupil {
@@ -114,19 +117,29 @@
         }
 
 
-        @keyframes speak-mouth-animation { /* Modern mouth movement */
-            0% { d: path("M 40 65 Q 50 72 60 65"); }
-            100% { d: path("M 40 67 Q 50 75 60 67"); }
-        }
-        @keyframes speak-inner-mouth { /* Inner mouth movement */
-            0% { ry: 3; opacity: 0.6; }
-            100% { ry: 5; opacity: 1; }
-        }
-         @keyframes speak-bob-animation { /* Body bob */
-            0% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-3px) scale(1.02); }
-            100% { transform: translateY(0) scale(1); }
-        }
+       @keyframes speak-mouth-animation { 
+    0% { d: path("M 40 65 Q 50 72 60 65"); }
+    25% { d: path("M 38 63 Q 50 75 62 63"); }
+    50% { d: path("M 40 67 Q 50 78 60 67"); }
+    75% { d: path("M 42 65 Q 50 73 58 65"); }
+    100% { d: path("M 40 65 Q 50 72 60 65"); }
+}
+
+@keyframes speak-inner-mouth { 
+    0% { ry: 2; opacity: 0.7; transform: scale(1); }
+    25% { ry: 6; opacity: 1; transform: scale(1.1); }
+    50% { ry: 8; opacity: 1; transform: scale(1.2); }
+    75% { ry: 4; opacity: 0.9; transform: scale(1.05); }
+    100% { ry: 2; opacity: 0.7; transform: scale(1); }
+}
+
+@keyframes speak-bob-animation { 
+    0% { transform: translateY(0) scale(1) rotate(0deg); }
+    25% { transform: translateY(-2px) scale(1.01) rotate(-0.5deg); }
+    50% { transform: translateY(-4px) scale(1.02) rotate(0deg); }
+    75% { transform: translateY(-2px) scale(1.01) rotate(0.5deg); }
+    100% { transform: translateY(0) scale(1) rotate(0deg); }
+}
 
         @keyframes thinking-eyes { /* Eyes looking around while thinking */
             0% { transform: translateX(0) translateY(0); }
@@ -385,7 +398,7 @@
 </head>
 <body>
     <div class="top-controls">
-        <button id="toggle-customize-btn">Customize</button>
+        <button id="toggle-customize-btn">Customize</button> 
         <button id="toggle-history-btn">View History</button>
     </div>
 
@@ -402,8 +415,7 @@
                 <circle cx="35" cy="40" r="12" fill="none" stroke="#666" stroke-width="0.8"/>
                 <circle cx="65" cy="40" r="12" fill="none" stroke="#666" stroke-width="0.8"/>
                 <line x1="47" y1="40" x2="53" y2="40" stroke="#666" stroke-width="0.8"/>
-                 <line x1="28" y1="28" x2="42" y2="26" stroke="#8B4513" stroke-width="1.2" stroke-linecap="round"/>
-                <line x1="58" y1="26" x2="72" y2="28" stroke="#8B4513" stroke-width="1.2" stroke-linecap="round"/>
+                  
             </svg>
         </div>
         <h2 id="professor-name-display">Professor Gigglesworth</h2>
