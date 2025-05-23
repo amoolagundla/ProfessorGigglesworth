@@ -280,6 +280,20 @@
             100% { box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
         }
 
+        /* Manual restart button for mobile debugging */
+        #restart-listening-btn {
+            background-color: #FF9800;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive;
+            font-size: 1em;
+            margin-top: 10px;
+            display: none;
+        }
+
         /* Modal Panel Styling */
         .modal-panel {
             display: none; /* Hidden by default */
@@ -423,6 +437,7 @@
             <p>Hello! Click "Wake Up Professor" to activate me!</p>
         </div>
         <button id="activation-button">🎤 Wake Up Professor</button>
+        <button id="restart-listening-btn">🔄 Restart Listening</button>
         <div id="status-indicator">Click the button to start!</div>
     </div>
 
@@ -475,6 +490,7 @@
         const professorSpeechBubbleP = document.getElementById('professor-speech').querySelector('p');
         const statusIndicator = document.getElementById('status-indicator');
         const activationButton = document.getElementById('activation-button');
+        const restartListeningBtn = document.getElementById('restart-listening-btn');
 
         // Top Controls
         const toggleCustomizeBtn = document.getElementById('toggle-customize-btn');
@@ -496,13 +512,12 @@
         const closeHistoryBtn = document.getElementById('close-history-btn');
         const clearHistoryBtn = document.getElementById('clear-history-btn');
 
-        const OPENAI_BACKEND_URL = ' https://ocr-function-ai-grocery-bxgke3bjaedhckaz.eastus-01.azurewebsites.net/chat/kids'; // Updated to match your actual running port
-        let sessionId = Date.now().toString(); // Simple session tracking
+        const OPENAI_BACKEND_URL = ' https://ocr-function-ai-grocery-bxgke3bjaedhckaz.eastus-01.azurewebsites.net/chat/kids';
+        let sessionId = Date.now().toString();
 
-        // Add instruction for ChatGPT to return plain text
         const SYSTEM_INSTRUCTION = "Please respond in plain text only. No markdown, no formatting, no asterisks, no special characters. Just natural conversational text that sounds good when spoken aloud. Keep responses concise and friendly for voice interaction.";
         
-        const MAX_HISTORY_MESSAGES = 10; // Send last 10 messages for context
+        const MAX_HISTORY_MESSAGES = 10;
 
         const synth = window.speechSynthesis;
         let voices = [];
@@ -513,7 +528,15 @@
         let isActivated = false;
         let speechAllowed = false;
 
-        const defaultSVGAvatar = professorAvatarContainer.innerHTML; // Store default SVG
+        const defaultSVGAvatar = professorAvatarContainer.innerHTML;
+
+        // Mobile Chrome specific variables
+        let recognitionReady = false;
+        let recognitionRunning = false;
+        let lastRecognitionStart = 0;
+        let recognitionAttempts = 0;
+        const MAX_RECOGNITION_ATTEMPTS = 3;
+        const RECOGNITION_RESTART_DELAY = 1000; // 1 second delay between restarts
 
         function populateVoiceList() {
             voices = synth.getVoices().sort((a, b) => {
@@ -527,7 +550,6 @@
             voiceSelect.innerHTML = '';
             voices.forEach((voice, i) => {
                 const option = document.createElement('option');
-                // Attempt to identify kid-friendly voices (very heuristic)
                 let displayName = `${voice.name} (${voice.lang})`;
                 if (voice.name.toLowerCase().includes('child') || voice.name.toLowerCase().includes('kid')) {
                     displayName = `🧸 ${displayName} (Might be kid-like)`;
@@ -542,7 +564,6 @@
                 if (i === selectedIndex) option.selected = true;
             });
             if (voices.length > 0 && !currentVoice) {
-                // First try to find Google US English voice
                 currentVoice = voices.find(v => 
                     v.name.toLowerCase().includes('google') && 
                     v.lang === 'en-US'
@@ -558,30 +579,28 @@
         function logConversation(sender, text) {
             conversationLog.push({ sender, text, timestamp: new Date() });
             renderConversationHistory();
-            // Save to localStorage for persistence
             try {
-                localStorage.setItem('gigglesworth-conversations', JSON.stringify(conversationLog));
+                const conversations = JSON.stringify(conversationLog);
+                // Use a simple variable instead of localStorage for mobile compatibility
+                window.conversationData = conversations;
             } catch (e) {
-                console.log('Could not save conversation to localStorage');
+                console.log('Could not save conversation');
             }
         }
 
         function loadConversationHistory() {
             try {
-                const saved = localStorage.getItem('gigglesworth-conversations');
-                if (saved) {
-                    conversationLog = JSON.parse(saved);
-                    // Convert timestamp strings back to Date objects
+                if (window.conversationData) {
+                    conversationLog = JSON.parse(window.conversationData);
                     conversationLog.forEach(entry => {
                         if (typeof entry.timestamp === 'string') {
                             entry.timestamp = new Date(entry.timestamp);
                         }
                     });
                     
-                    // Limit stored history to prevent excessive growth
                     if (conversationLog.length > 50) {
                         conversationLog = conversationLog.slice(-50);
-                        localStorage.setItem('gigglesworth-conversations', JSON.stringify(conversationLog));
+                        window.conversationData = JSON.stringify(conversationLog);
                     }
                 }
             } catch (e) {
@@ -591,11 +610,10 @@
         }
 
         function renderConversationHistory() {
-            if (!chatHistoryPanel.style.display || chatHistoryPanel.style.display === 'none') return; // Don't render if not visible
+            if (!chatHistoryPanel.style.display || chatHistoryPanel.style.display === 'none') return;
 
-            chatLogDisplay.innerHTML = ''; // Clear previous
+            chatLogDisplay.innerHTML = '';
             
-            // Show conversation count
             const totalMessages = conversationLog.length;
             const headerDiv = document.createElement('div');
             headerDiv.style.textAlign = 'center';
@@ -610,7 +628,6 @@
                 messageDiv.classList.add('message');
                 messageDiv.classList.add(entry.sender === 'user' ? 'user-message' : 'professor-message');
                 
-                // Add timestamp
                 const timeDiv = document.createElement('div');
                 timeDiv.style.fontSize = '0.8em';
                 timeDiv.style.opacity = '0.7';
@@ -623,7 +640,6 @@
                 messageDiv.appendChild(textDiv);
                 messageDiv.appendChild(timeDiv);
                 
-                // Highlight recent messages that are sent to API
                 if (index >= totalMessages - MAX_HISTORY_MESSAGES) {
                     messageDiv.style.border = '1px solid #4CAF50';
                     if (entry.sender === 'user') {
@@ -635,7 +651,7 @@
                 
                 chatLogDisplay.appendChild(messageDiv);
             });
-            chatLogDisplay.scrollTop = chatLogDisplay.scrollHeight; // Scroll to bottom
+            chatLogDisplay.scrollTop = chatLogDisplay.scrollHeight;
         }
 
         function speak(text, onEndCallback) {
@@ -645,21 +661,20 @@
                 return;
             }
 
-            if (synth.speaking) { // If already speaking, cancel and speak new one
+            if (synth.speaking) {
                 synth.cancel();
             }
 
-            // Add emotional expression based on text content
             addEmotionalExpression(text);
 
             const utterThis = new SpeechSynthesisUtterance(text);
             utterThis.onstart = () => {
                 professorAvatarContainer.classList.add('speaking');
-                morphToExpression('happy'); // Smile while speaking
+                morphToExpression('happy');
             };
             utterThis.onend = () => {
                 professorAvatarContainer.classList.remove('speaking');
-                setTimeout(() => morphToExpression('neutral'), 500); // Return to neutral after speaking
+                setTimeout(() => morphToExpression('neutral'), 500);
                 if (onEndCallback) onEndCallback();
             };
             utterThis.onerror = (event) => {
@@ -675,8 +690,8 @@
             utterThis.rate = parseFloat(voiceRateInput.value) || currentRate;
 
             professorSpeechBubbleP.textContent = text;
-            if (text !== "Yes? How can I help you?" && !text.startsWith("My settings have been updated")) { // Avoid logging trivial or meta messages if desired
-                 if (conversationLog.length === 0 || conversationLog[conversationLog.length -1].text !== text) { // Avoid double logging initial
+            if (text !== "Yes? How can I help you?" && !text.startsWith("My settings have been updated")) {
+                 if (conversationLog.length === 0 || conversationLog[conversationLog.length -1].text !== text) {
                     logConversation('professor', text);
                  }
             }
@@ -687,14 +702,13 @@
         let recognition;
         let isListeningForTrigger = true;
         let conversationActive = false;
-        let continuousMode = false; // New flag for continuous conversation
+        let continuousMode = false;
         let speechTimeout = null;
         let lastTranscript = '';
         const TRIGGER_PHRASE = "okay professor";
         const STOP_PHRASE = "stop";
-        const SPEECH_DEBOUNCE_DELAY = 1500; // Reduced to 1.5 seconds
+        const SPEECH_DEBOUNCE_DELAY = 2000; // Increased for mobile
 
-        // Morphing shapes for different expressions
         const expressions = {
             neutral: {
                 mouth: "M 40 65 Q 50 72 60 65",
@@ -726,14 +740,60 @@
             }
         };
 
+        function safeStartRecognition() {
+            if (!recognition || recognitionRunning) {
+                console.log('Recognition not ready or already running');
+                return false;
+            }
+
+            const now = Date.now();
+            if (now - lastRecognitionStart < RECOGNITION_RESTART_DELAY) {
+                console.log('Too soon to restart recognition');
+                return false;
+            }
+
+            if (recognitionAttempts >= MAX_RECOGNITION_ATTEMPTS) {
+                console.log('Max recognition attempts reached');
+                statusIndicator.textContent = "Voice recognition temporarily disabled. Try the restart button.";
+                restartListeningBtn.style.display = 'block';
+                return false;
+            }
+
+            try {
+                recognitionRunning = true;
+                lastRecognitionStart = now;
+                recognitionAttempts++;
+                recognition.start();
+                console.log('Recognition started successfully');
+                return true;
+            } catch (error) {
+                console.error('Failed to start recognition:', error);
+                recognitionRunning = false;
+                if (error.name === 'InvalidStateError') {
+                    // Recognition is already started, reset our flag
+                    recognitionRunning = true;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        function resetRecognitionAttempts() {
+            recognitionAttempts = 0;
+            restartListeningBtn.style.display = 'none';
+        }
+
         function initializeSpeechRecognition() {
             if (SpeechRecognition) {
                 recognition = new SpeechRecognition();
-                recognition.continuous = true;
+                recognition.continuous = false; // Changed to false for better mobile compatibility
                 recognition.interimResults = true;
                 recognition.lang = 'en-US';
 
                 recognition.onstart = () => {
+                    recognitionRunning = true;
+                    resetRecognitionAttempts();
+                    
                     if (isListeningForTrigger) {
                         statusIndicator.textContent = "Listening for 'Okay Professor'...";
                     } else if (continuousMode) {
@@ -743,6 +803,7 @@
                     }
                     statusIndicator.classList.add('listening');
                     statusIndicator.classList.remove('processing');
+                    console.log('Recognition started');
                 };
 
                 recognition.onresult = (event) => {
@@ -753,16 +814,22 @@
                         else interimTranscript += event.results[i][0].transcript;
                     }
                     const currentTranscript = (finalTranscript || interimTranscript).toLowerCase().trim();
+                    console.log('Recognition result:', currentTranscript, 'Final:', !!finalTranscript);
 
                     // Handle stop command in continuous mode
                     if (continuousMode && currentTranscript.includes(STOP_PHRASE)) {
                         continuousMode = false;
                         isListeningForTrigger = true;
                         conversationActive = false;
+                        recognitionRunning = false;
+                        recognition.stop();
                         speak("Goodbye! Say 'Okay Professor' when you want to chat again.", () => {
-                            statusIndicator.textContent = "Listening for 'Okay Professor'...";
+                            setTimeout(() => {
+                                if (isActivated && document.visibilityState === 'visible') {
+                                    safeStartRecognition();
+                                }
+                            }, 1000);
                         });
-                        // Clear any pending timeout
                         if (speechTimeout) {
                             clearTimeout(speechTimeout);
                             speechTimeout = null;
@@ -772,34 +839,35 @@
 
                     // Handle trigger phrase detection
                     if (isListeningForTrigger && currentTranscript.includes(TRIGGER_PHRASE)) {
+                        recognitionRunning = false;
+                        recognition.stop();
                         speak("Yes.", () => {
                             isListeningForTrigger = false;
                             conversationActive = true;
-                            continuousMode = true; // Enable continuous mode
-                            statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
-                            lastTranscript = ''; // Reset for new conversation
+                            continuousMode = true;
+                            lastTranscript = '';
+                            setTimeout(() => {
+                                if (isActivated && document.visibilityState === 'visible') {
+                                    safeStartRecognition();
+                                }
+                            }, 500);
                         });
                         return;
                     }
 
-                    // Handle conversation with debouncing (both single question and continuous mode)
+                    // Handle conversation with debouncing
                     if (!isListeningForTrigger && conversationActive) {
-                        // Clear existing timeout
                         if (speechTimeout) {
                             clearTimeout(speechTimeout);
                         }
                         
-                        // Only process if we have final transcript (user finished a phrase)
                         if (finalTranscript.length > 0) {
                             lastTranscript = finalTranscript.trim();
+                            recognitionRunning = false;
+                            recognition.stop();
                             
-                            // Set debounce timeout - wait for user to finish completely
                             speechTimeout = setTimeout(() => {
                                 if (lastTranscript.length > 0) {
-                                    // Don't set conversationActive to false in continuous mode
-                                    if (!continuousMode) {
-                                        conversationActive = false;
-                                    }
                                     logConversation('user', lastTranscript);
                                     sendToAI(lastTranscript);
                                     lastTranscript = '';
@@ -811,10 +879,7 @@
                             } else {
                                 statusIndicator.textContent = "Got it! Waiting for you to finish...";
                             }
-                        }
-                        
-                        // Update status to show we're still listening for interim results
-                        else if (interimTranscript.length > 0) {
+                        } else if (interimTranscript.length > 0) {
                             if (continuousMode) {
                                 statusIndicator.textContent = `Listening: "${interimTranscript}"... (Say 'stop' to end)`;
                             } else {
@@ -825,22 +890,45 @@
                 };
 
                 recognition.onend = () => {
+                    recognitionRunning = false;
                     statusIndicator.classList.remove('listening');
-                     if (document.visibilityState === 'visible' && !synth.speaking && recognition && isActivated) { // Only restart if page is active and not about to speak
+                    console.log('Recognition ended');
+                    
+                    // Only restart if we're still activated and page is visible
+                    if (isActivated && document.visibilityState === 'visible' && !synth.speaking) {
                         setTimeout(() => {
-                            try { recognition.start(); }
-                            catch(e){ console.error("Error restarting recognition onend:", e); }
-                        }, 250);
+                            if (!recognitionRunning && isActivated) {
+                                safeStartRecognition();
+                            }
+                        }, 1000); // Longer delay for mobile
                     }
                 };
-                 recognition.onerror = (event) => {
+
+                recognition.onerror = (event) => {
                     console.error('Speech recognition error', event.error);
+                    recognitionRunning = false;
                     statusIndicator.classList.remove('listening', 'processing');
-                    if (event.error === 'no-speech' || event.error === 'aborted') { /* Common with continuous, let onend handle restart */ }
-                    else if (event.error === 'audio-capture') { statusIndicator.textContent = "Mic error."; speak("I can't seem to access your microphone."); }
-                    else if (event.error === 'not-allowed') { statusIndicator.textContent = "Mic permission denied."; speak("Please allow microphone access."); }
-                    else { statusIndicator.textContent = "Voice recognition hiccup."; }
+                    
+                    if (event.error === 'no-speech') {
+                        console.log('No speech detected, will restart');
+                    } else if (event.error === 'aborted') {
+                        console.log('Recognition aborted');
+                    } else if (event.error === 'audio-capture') {
+                        statusIndicator.textContent = "Mic error. Check permissions.";
+                        speak("I can't seem to access your microphone.");
+                        restartListeningBtn.style.display = 'block';
+                    } else if (event.error === 'not-allowed') {
+                        statusIndicator.textContent = "Mic permission denied.";
+                        speak("Please allow microphone access and try again.");
+                        restartListeningBtn.style.display = 'block';
+                    } else {
+                        statusIndicator.textContent = "Voice recognition error. Try restart button.";
+                        restartListeningBtn.style.display = 'block';
+                    }
                 };
+
+                recognitionReady = true;
+                console.log('Speech recognition initialized');
             } else {
                 statusIndicator.textContent = "Browser doesn't support Speech Recognition!";
                 speak("It seems your browser doesn't support the magic for me to hear you.");
@@ -852,22 +940,18 @@
             statusIndicator.classList.add('processing');
             statusIndicator.classList.remove('listening');
             
-            // Add thinking animation and expression
             professorAvatarContainer.classList.add('thinking');
             professorSpeechBubbleP.textContent = "Hmm, let me think about that...";
             morphToExpression('thinking');
             
             try {
-                // Format message with conversation history
                 const messageWithHistory = formatMessageForAPI(userText);
-                
-                console.log('Sending to API:', messageWithHistory); // Debug log
+                console.log('Sending to API:', messageWithHistory);
                 
                 const response = await fetch(OPENAI_BACKEND_URL, {
                     method: "POST",
                     headers: {
                         "Content-Type": "text/plain",
-                        // "x-functions-key": "<your-function-key>", // Uncomment if your function requires a key
                     },
                     body: messageWithHistory
                 });
@@ -880,70 +964,66 @@
                 const reply = await response.text();
                 console.log("ChatGPT says:", reply);
                 
-                // Clean up any remaining formatting that might slip through
                 const cleanReply = reply
-                    .replace(/\*\*/g, '') // Remove bold markdown
-                    .replace(/\*/g, '')   // Remove italic markdown
-                    .replace(/`/g, '')    // Remove code formatting
-                    .replace(/#{1,6}\s/g, '') // Remove headers
-                    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convert links to just text
+                    .replace(/\*\*/g, '')
+                    .replace(/\*/g, '')
+                    .replace(/`/g, '')
+                    .replace(/#{1,6}\s/g, '')
+                    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
                     .trim();
                 
                 speak(cleanReply || "I'm not sure what to say to that!", () => {
-                    // Add sparkles for exciting responses
                     if (cleanReply && (cleanReply.includes('exciting') || cleanReply.includes('amazing') || cleanReply.includes('wonderful'))) {
                         createMagicalSparkles();
                     }
                     
-                    // In continuous mode, stay active and keep listening
                     if (continuousMode) {
-                        // Don't reset to trigger mode, stay in conversation
                         statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
                     } else {
-                        // Single question mode - go back to waiting for trigger
                         isListeningForTrigger = true;
                         conversationActive = false;
                         statusIndicator.textContent = "Listening for 'Okay Professor'...";
                     }
                     
                     lastTranscript = '';
-                    // Clear any pending timeout
                     if (speechTimeout) {
                         clearTimeout(speechTimeout);
                         speechTimeout = null;
                     }
+                    
+                    // Restart recognition after speaking
+                    setTimeout(() => {
+                        if (isActivated && document.visibilityState === 'visible') {
+                            safeStartRecognition();
+                        }
+                    }, 1000);
                 });
             } catch (error) {
                 console.error('Error sending message to AI:', error);
                 speak("Oh dear, my circuits are a bit tangled. Could you try again?", () => {
-                    // In continuous mode, stay active and keep listening
                     if (continuousMode) {
                         statusIndicator.textContent = "Listening... (Say 'stop' to end conversation)";
                     } else {
-                        // Single question mode - go back to waiting for trigger
                         isListeningForTrigger = true;
                         conversationActive = false;
                         statusIndicator.textContent = "Listening for 'Okay Professor'...";
                     }
                     
                     lastTranscript = '';
-                    // Clear any pending timeout
                     if (speechTimeout) {
                         clearTimeout(speechTimeout);
                         speechTimeout = null;
                     }
+                    
+                    setTimeout(() => {
+                        if (isActivated && document.visibilityState === 'visible') {
+                            safeStartRecognition();
+                        }
+                    }, 1000);
                 });
             } finally {
                 statusIndicator.classList.remove('processing');
-                // Remove thinking animation
                 professorAvatarContainer.classList.remove('thinking');
-                
-                 if (document.visibilityState === 'visible' && !synth.speaking && recognition && isActivated) {
-                    setTimeout(() => {
-                        try { recognition.start(); }
-                        catch(e){ console.error("Error restarting recognition in finally:", e); }
-                    }, 250);
-                }
             }
         }
 
@@ -953,12 +1033,12 @@
                 const img = new Image();
                 img.onload = () => { professorAvatarContainer.innerHTML = `<img id="professor-avatar-img" src="${newAvatarUrl}" alt="Professor Avatar" style="width:100%; height:100%; border-radius:50%; border: 8px solid #8B4513;">`; };
                 img.onerror = () => {
-                    professorAvatarContainer.innerHTML = defaultSVGAvatar; // Revert to SVG
+                    professorAvatarContainer.innerHTML = defaultSVGAvatar;
                     speak("Hmm, that image link for my avatar doesn't seem to work. I'll stick to my current look!");
                 };
                 img.src = newAvatarUrl;
             } else {
-                 professorAvatarContainer.innerHTML = defaultSVGAvatar; // Revert to SVG if field is cleared
+                 professorAvatarContainer.innerHTML = defaultSVGAvatar;
             }
 
             professorNameDisplay.textContent = profNameInput.value.trim() || "Professor";
@@ -982,14 +1062,13 @@
             voiceRateInput.value = currentRate;
         }
 
-        // SVG Morphing Functions using Flubber
         function morphToExpression(expressionName) {
             if (!expressions[expressionName] || !window.flubber) return;
 
             const expression = expressions[expressionName];
             const mouthElement = document.getElementById('outer-mouth');
-            const leftEyebrow = document.querySelector('line[x1="28"]'); // Left eyebrow
-            const rightEyebrow = document.querySelector('line[x1="58"]'); // Right eyebrow
+            const leftEyebrow = document.querySelector('line[x1="47"]');
+            const rightEyebrow = document.querySelector('line[x1="47"]');
 
             if (mouthElement) {
                 const currentMouth = mouthElement.getAttribute('d');
@@ -999,38 +1078,22 @@
                     try {
                         const mouthMorph = flubber.interpolate(currentMouth, targetMouth);
                         
-                        anime({
-                            targets: mouthElement,
-                            duration: 600,
-                            easing: 'easeOutQuad',
-                            update: function(anim) {
-                                mouthElement.setAttribute('d', mouthMorph(anim.progress / 100));
-                            }
-                        });
+                        if (window.anime) {
+                            anime({
+                                targets: mouthElement,
+                                duration: 600,
+                                easing: 'easeOutQuad',
+                                update: function(anim) {
+                                    mouthElement.setAttribute('d', mouthMorph(anim.progress / 100));
+                                }
+                            });
+                        } else {
+                            mouthElement.setAttribute('d', targetMouth);
+                        }
                     } catch (e) {
-                        // Fallback to direct attribute change
                         mouthElement.setAttribute('d', targetMouth);
                     }
                 }
-            }
-
-            // Animate eyebrows
-            if (leftEyebrow && rightEyebrow) {
-                anime({
-                    targets: [leftEyebrow, rightEyebrow],
-                    duration: 400,
-                    easing: 'easeOutQuad',
-                    y1: function(el) {
-                        return el === leftEyebrow ? 
-                            parseInt(expression.eyebrows.left.split(' ')[1]) : 
-                            parseInt(expression.eyebrows.right.split(' ')[1]);
-                    },
-                    y2: function(el) {
-                        return el === leftEyebrow ? 
-                            parseInt(expression.eyebrows.left.split(' ')[4]) : 
-                            parseInt(expression.eyebrows.right.split(' ')[4]);
-                    }
-                });
             }
         }
 
@@ -1052,7 +1115,6 @@
         }
 
         function buildConversationHistory() {
-            // Get recent conversation history (excluding system messages)
             const recentMessages = conversationLog
                 .filter(entry => entry.sender === 'user' || entry.sender === 'professor')
                 .slice(-MAX_HISTORY_MESSAGES)
@@ -1116,35 +1178,69 @@
         // Load conversation history on startup
         loadConversationHistory();
 
+        // Handle page visibility changes for mobile
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isActivated && !recognitionRunning) {
+                console.log('Page became visible, restarting recognition');
+                setTimeout(() => {
+                    safeStartRecognition();
+                }, 1000);
+            } else if (document.visibilityState === 'hidden' && recognitionRunning) {
+                console.log('Page hidden, stopping recognition');
+                recognition.stop();
+                recognitionRunning = false;
+            }
+        });
+
         // Activation button click handler
         activationButton.addEventListener('click', () => {
             speechAllowed = true;
             isActivated = true;
             activationButton.classList.add('hidden');
             
-            // Initialize speech recognition
             initializeSpeechRecognition();
             
-            // Just update the speech bubble and start listening immediately
             professorSpeechBubbleP.textContent = "I'm listening! Say 'Okay Professor' to chat with me!";
-            statusIndicator.textContent = "Listening for 'Okay Professor'...";
+            statusIndicator.textContent = "Starting up...";
             
-            // Start speech recognition immediately without any greeting speech
-            if (recognition) {
-                try { 
-                    recognition.start(); 
-                } catch(e) {
-                    console.error("Initial recognition start failed:", e);
+            // Start speech recognition with delay for mobile
+            setTimeout(() => {
+                if (recognitionReady) {
+                    safeStartRecognition();
+                } else {
                     statusIndicator.textContent = "Voice recognition couldn't start.";
-                    speak("I'm having trouble starting my ears! Please check microphone permissions and refresh.");
+                    speak("I'm having trouble starting my ears! Please check microphone permissions and try the restart button.");
+                    restartListeningBtn.style.display = 'block';
                 }
+            }, 1000);
+        });
+
+        // Manual restart button for troubleshooting
+        restartListeningBtn.addEventListener('click', () => {
+            console.log('Manual restart requested');
+            resetRecognitionAttempts();
+            recognitionRunning = false;
+            
+            if (recognition) {
+                recognition.stop();
             }
+            
+            setTimeout(() => {
+                if (recognitionReady) {
+                    safeStartRecognition();
+                } else {
+                    initializeSpeechRecognition();
+                    setTimeout(() => {
+                        safeStartRecognition();
+                    }, 500);
+                }
+            }, 1000);
         });
 
         // Event Listeners for Modals
         toggleCustomizeBtn.addEventListener('click', () => {
             customizationPanel.style.display = 'flex';
-            updateVoiceSelectionUI(); // Ensure current settings are shown
+            updateVoiceSelectionUI();
         });
         closeCustomizeBtn.addEventListener('click', () => customizationPanel.style.display = 'none');
         applyCustomizationBtn.addEventListener('click', () => {
@@ -1154,14 +1250,14 @@
 
         toggleHistoryBtn.addEventListener('click', () => {
             chatHistoryPanel.style.display = 'flex';
-            renderConversationHistory(); // Render when opened
+            renderConversationHistory();
         });
         closeHistoryBtn.addEventListener('click', () => chatHistoryPanel.style.display = 'none');
         
         clearHistoryBtn.addEventListener('click', () => {
             if (confirm('Are you sure you want to clear all conversation history? This cannot be undone.')) {
                 conversationLog = [];
-                localStorage.removeItem('gigglesworth-conversations');
+                window.conversationData = null;
                 renderConversationHistory();
                 speak("Chat history has been cleared!");
             }
@@ -1170,7 +1266,7 @@
         // Close modals if clicking outside content
         [customizationPanel, chatHistoryPanel].forEach(panel => {
             panel.addEventListener('click', (event) => {
-                if (event.target === panel) { // Clicked on the backdrop itself
+                if (event.target === panel) {
                     panel.style.display = 'none';
                 }
             });
